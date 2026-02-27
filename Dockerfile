@@ -1,32 +1,31 @@
+# Use the official n8n image
 FROM n8nio/n8n:latest
 
+# Switch to root to fix permissions for Choreo
 USER root
 
-# Install 'bash' if needed (alpine base usually has it, but good to be sure)
-RUN apk add --no-cache bash
+# Choreo requires a numeric UID between 10000-20000
+# We don't need to create a named user; just setting the ID is enough
+RUN mkdir -p /home/node/.n8n /opt/n8n/config && \
+    chown -R 10001:10001 /home/node /opt/n8n/config
 
-# Set Choreo User
-ARG USER_ID=10001
-RUN adduser -u $USER_ID -D choreo-user
+# Create a simplified entrypoint script using standard shell (sh)
+RUN printf '#!/bin/sh\n\
+if [ -f "/opt/n8n/config/.env" ]; then\n\
+  echo "Loading environment variables from /opt/n8n/config/.env"\n\
+  export $(grep -v "^#" /opt/n8n/config/.env | xargs)\n\
+fi\n\
+exec n8n start' > /entrypoint.sh && chmod +x /entrypoint.sh
 
-# Create the specific mount directory you want
-RUN mkdir -p /home/choreo-user/.n8n /opt/n8n/config && \
-    chown -R $USER_ID:$USER_ID /home/choreo-user /opt/n8n/config
-
-# Create the entrypoint script
-RUN echo '#!/bin/bash' > /entrypoint.sh && \
-    echo 'if [ -f "$ENV_FILE_PATH" ]; then' >> /entrypoint.sh && \
-    echo '  echo "Loading environment from $ENV_FILE_PATH"' >> /entrypoint.sh && \
-    echo '  export $(grep -v "^#" "$ENV_FILE_PATH" | xargs)' >> /entrypoint.sh && \
-    echo 'fi' >> /entrypoint.sh && \
-    echo 'exec n8n start' >> /entrypoint.sh && \
-    chmod +x /entrypoint.sh
-
+# Explicitly set the numeric user
 USER 10001
-WORKDIR /home/choreo-user
+WORKDIR /home/node
 
-# Exact location for your Choreo mount
-ENV ENV_FILE_PATH=/opt/n8n/config/.env
-ENV N8N_USER_FOLDER=/home/choreo-user/.n8n
+# Set n8n specific paths
+ENV HOME=/home/node
+ENV N8N_USER_FOLDER=/home/node/.n8n
+
+# Expose n8n default port
+EXPOSE 5678
 
 ENTRYPOINT ["/entrypoint.sh"]
