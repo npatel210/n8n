@@ -24,9 +24,12 @@ RUN chmod +x /start.sh && \
     chown -R 10001:10001 /home/node /opt/n8n /start.sh && \
     chmod -R 775 /home/node /opt/n8n
 
-# 4. Force n8n to listen on all network interfaces (Critical for Choreo health checks)
+# 4. Environment Variables
 ENV N8N_LISTEN_ADDRESS=0.0.0.0
 ENV N8N_PORT=5678
+# FIX: Explicitly set the home and user folders so n8n stops trying to write to /
+ENV HOME=/home/node
+ENV N8N_USER_FOLDER=/home/node
 
 # 5. Switch to the non-root user required by Choreo
 USER 10001
