@@ -1,6 +1,6 @@
 # Stage 1: Patching with Node 24 LTS
 # Pinning the version to satisfy DL3007
-FROM node:24.15.0-alpine AS builder
+FROM node:25.7.0-alpine3.23 AS builder
 
 # 1. Update npm and patch libraries identified in your scans
 # Using --force to bypass the peer dependency warnings seen in your logs
@@ -9,7 +9,7 @@ RUN npm install -g npm@11.1.0 && \
 
 # Stage 2: Final n8n Production Image
 # Pinning the version for build stability
-FROM n8nio/n8n:1.94.3
+FROM n8nio/n8n:1.123.23
 
 USER root
 
