@@ -1,35 +1,20 @@
-# Stage 1: Build & Patch
-FROM n8nio/n8n:latest AS builder
-
-USER root
-
-# Update the OS package manager and upgrade all installed packages
-# This fixes OS-level vulnerabilities (like OpenSSL or libc)
-RUN apt-get update && apt-get upgrade -y && \
-    npm install -g npm@latest
-
-# Proactively update the specific library causing issues 
-# and audit all other global packages
-RUN npm install -g fast-xml-parser@5.3.5 && \
-    npm update -g
-
-# Stage 2: Final Secure Image
+# Use the official n8n image
 FROM n8nio/n8n:latest
 
+# Switch to root to perform security patches
 USER root
 
-# Copy the patched global node_modules from the builder stage
-COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
+# 1. Update OS packages (Alpine use 'apk')
+# 2. Update npm and the vulnerable fast-xml-parser
+RUN apk update && apk upgrade && \
+    npm install -g npm@latest fast-xml-parser@5.3.5
 
-# Apply OS-level security patches to the final image as well
-RUN apt-get update && apt-get upgrade -y && \
-    rm -rf /var/lib/apt/lists/*
-
-# Choreo Compliance: Setup directories and UID 10001
+# 3. Create directories and set permissions for UID 10001
+# Note: In Alpine/n8n image, the default home is /home/node
 RUN mkdir -p /home/node/.n8n /opt/n8n/config && \
-    chown -R 10001:10001 /home/node/.n8n /opt/n8n/config
+    chown -R 10001:10001 /home/node /opt/n8n/config
 
-# Optimized Entrypoint for your Neon DB .env file
+# 4. Entrypoint script to source your mounted Neon DB .env file
 RUN printf '#!/bin/sh\n\
 if [ -f "/opt/n8n/config/.env" ]; then\n\
   echo "Loading environment from /opt/n8n/config/.env..."\n\
@@ -37,14 +22,14 @@ if [ -f "/opt/n8n/config/.env" ]; then\n\
 fi\n\
 exec n8n start' > /entrypoint.sh && chmod +x /entrypoint.sh
 
-# Choreo Security requirement
+# Choreo security requirement: Run as UID 10001
 USER 10001
 WORKDIR /home/node
 
 ENV HOME=/home/node
 ENV N8N_USER_FOLDER=/home/node/.n8n
 
-# Port exposure for Choreo reverse proxy
+# Expose the internal port for the Choreo reverse proxy
 EXPOSE 5678
 
 ENTRYPOINT ["/entrypoint.sh"]
