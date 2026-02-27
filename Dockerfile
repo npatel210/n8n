@@ -2,8 +2,8 @@ FROM n8nio/n8n:latest
 
 USER root
 
-# 1. Setup directories
-RUN mkdir -p /opt/n8n/config /home/node/.n8n
+# 1. Setup directories (Now using /tmp/n8n for writable storage)
+RUN mkdir -p /opt/n8n/config /tmp/n8n/.n8n
 
 # 2. Create a dedicated, debuggable startup script
 RUN echo '#!/bin/sh' > /start.sh && \
@@ -19,17 +19,17 @@ RUN echo '#!/bin/sh' > /start.sh && \
     echo 'echo "--- Starting n8n process ---"' >> /start.sh && \
     echo 'exec n8n' >> /start.sh
 
-# 3. Set file permissions so user 10001 can execute the script and write data
+# 3. Set file permissions so user 10001 can execute and write
 RUN chmod +x /start.sh && \
-    chown -R 10001:10001 /home/node /opt/n8n /start.sh && \
-    chmod -R 775 /home/node /opt/n8n
+    chown -R 10001:10001 /tmp/n8n /opt/n8n /start.sh && \
+    chmod -R 775 /tmp/n8n /opt/n8n
 
 # 4. Environment Variables
 ENV N8N_LISTEN_ADDRESS=0.0.0.0
 ENV N8N_PORT=5678
-# FIX: Explicitly set the home and user folders so n8n stops trying to write to /
-ENV HOME=/home/node
-ENV N8N_USER_FOLDER=/home/node
+# FIX: Explicitly route the home and user folders to the writable /tmp directory
+ENV HOME=/tmp/n8n
+ENV N8N_USER_FOLDER=/tmp/n8n
 
 # 5. Switch to the non-root user required by Choreo
 USER 10001
