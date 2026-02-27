@@ -1,37 +1,20 @@
-# Stage 1: Patching
-FROM node:25.7.0-alpine3.23 AS builder
-RUN npm install -g npm@11.11.0 && \
-    npm install -g n8n@latest fast-xml-parser@5.3.5 form-data@4.0.4 --force
-
-# Stage 2: Production
+# Start from the official n8n image
 FROM n8nio/n8n:latest
 
+# Switch to root temporarily to set up directories and permissions
 USER root
 
-# Copy patched libraries
-COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
-# Copy only the n8n related binaries to avoid overwriting base system tools
-COPY --from=builder /usr/local/bin/n8n /usr/local/bin/n8n
+# 1. Create the configuration directory where Choreo will mount the .env file
+RUN mkdir -p /opt/n8n/config
 
-# Choreo Compliance
-RUN mkdir -p /home/node/.n8n /opt/n8n/config && \
-    chown -R 10001:0 /home/node /opt/n8n/config /usr/local/lib/node_modules && \
-    chmod -R 775 /home/node /opt/n8n/config
+# 2. Grant ownership of the n8n home directory and custom config dir to user 10001
+# (n8n stores its internal data/encryption keys in /home/node/.n8n)
+RUN chown -R 10001:10001 /home/node /opt/n8n && \
+    chmod -R 775 /home/node /opt/n8n
 
-# Entrypoint setup
-RUN printf '#!/bin/sh\n\
-if [ -f "/opt/n8n/config/.env" ]; then\n\
-  echo "Loading environment from /opt/n8n/config/.env..."\n\
-  export $(grep -v "^#" /opt/n8n/config/.env | xargs)\n\
-fi\n\
-exec /usr/local/bin/n8n start' > /entrypoint.sh && \
-    chmod +x /entrypoint.sh && \
-    chown 10001:0 /entrypoint.sh
-
+# 3. Switch to the non-root user required by Choreo Cloud
 USER 10001
-WORKDIR /home/node
-ENV HOME=/home/node
-ENV N8N_USER_FOLDER=/home/node/.n8n
 
-EXPOSE 5678
-ENTRYPOINT ["/entrypoint.sh"]
+# 4. Override the CMD to source the .env file before starting n8n.
+# This safely wraps inside n8n's default entrypoint.
+CMD ["sh", "-c", "if [ -f /opt/n8n/config/.env ]; then set -a; . /opt/n8n/config/.env; set +a; fi; exec n8n"]
