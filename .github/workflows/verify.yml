@@ -1,0 +1,50 @@
+name: Verify n8n Choreo Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # STEP 1: Dockerfile Scan (Linter)
+      - name: Dockerfile Lint (Hadolint)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          ignore: DL3006,DL3002 # Ignore 'Always tag' and 'Switch to root' for Choreo compliance
+
+      # STEP 2: Docker Build
+      - name: Build Local Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: n8n-choreo-verify:latest
+
+      # STEP 3: Container (Trivy) Vulnerability Scan
+      - name: Run Trivy Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'n8n-choreo-verify:latest'
+          format: 'table'
+          exit-code: '1' # This will fail the GitHub Action if vulnerabilities are found
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      # STEP 4: Push (Optional - Mocking Choreo's Push)
+      - name: Mock Push to Registry
+        run: echo "Image verified and clean. Ready for Choreo deployment."
+
+      # STEP 5: Environment Cleanup
+      - name: Cleanup
+        run: docker rmi n8n-choreo-verify:latest
