@@ -1,0 +1,8 @@
+# Temporarily ignoring until upstream n8nio/n8n patches dependencies
+CVE-2026-25646
+CVE-2026-25896
+CVE-2026-26278
+CVE-2026-26996
+CVE-2026-27903
+CVE-2026-27904
+CVE-2026-26960
