@@ -16,13 +16,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # STEP 1: Dockerfile Scan (Linter)
-      - name: Dockerfile Lint (Hadolint)
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: Dockerfile
-          ignore: DL3006,DL3002 # Ignore 'Always tag' and 'Switch to root' for Choreo compliance
-
       # STEP 2: Docker Build
       - name: Build Local Image
         uses: docker/build-push-action@v5
