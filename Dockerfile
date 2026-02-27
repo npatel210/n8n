@@ -1,20 +1,26 @@
 # Start from the official n8n image
 FROM n8nio/n8n:latest
 
-# Switch to root temporarily to set up directories and permissions
+# Switch to root to handle patching and directory setup
 USER root
 
-# 1. Create the configuration directory where Choreo will mount the .env file
+# 1. Patch OS-level vulnerabilities (Fixes libpng)
+RUN apk update && apk upgrade --no-cache
+
+# 2. Patch Node.js dependencies (Fixes fast-xml-parser, minimatch, tar)
+# We navigate to n8n's global installation directory to force the patched versions
+RUN cd /usr/local/lib/node_modules/n8n && \
+    npm install fast-xml-parser@^5.3.6 minimatch@^10.2.3 tar@^7.5.8
+
+# 3. Create the configuration directory for Choreo
 RUN mkdir -p /opt/n8n/config
 
-# 2. Grant ownership of the n8n home directory and custom config dir to user 10001
-# (n8n stores its internal data/encryption keys in /home/node/.n8n)
-RUN chown -R 10001:10001 /home/node /opt/n8n && \
-    chmod -R 775 /home/node /opt/n8n
+# 4. Grant ownership of directories to user 10001
+RUN chown -R 10001:10001 /home/node /opt/n8n /usr/local/lib/node_modules/n8n && \
+    chmod -R 775 /home/node /opt/n8n /usr/local/lib/node_modules/n8n
 
-# 3. Switch to the non-root user required by Choreo Cloud
+# 5. Switch to the non-root user required by Choreo Cloud
 USER 10001
 
-# 4. Override the CMD to source the .env file before starting n8n.
-# This safely wraps inside n8n's default entrypoint.
+# 6. Runtime script to source .env and start n8n
 CMD ["sh", "-c", "if [ -f /opt/n8n/config/.env ]; then set -a; . /opt/n8n/config/.env; set +a; fi; exec n8n"]
